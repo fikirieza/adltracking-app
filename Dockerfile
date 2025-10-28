@@ -1,27 +1,25 @@
-# Stage 1: Build frontend assets
-FROM node:20-bullseye AS build
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-
-# Stage 2: PHP + Laravel
+# Gunakan image PHP
 FROM php:8.2-fpm
 
+# Install dependensi sistem
 RUN apt-get update && apt-get install -y \
-    git unzip libpng-dev libonig-dev libxml2-dev libzip-dev curl \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+    git curl zip unzip nodejs npm
 
+# Set working dir
 WORKDIR /var/www/html
+
+# Copy composer & npm files
+COPY composer.json composer.lock package.json package-lock.json ./
+
+# Install PHP & JS dependencies
+RUN composer install --no-dev --optimize-autoloader
+RUN npm ci && npm run build
+
+# Copy semua project
 COPY . .
-COPY --from=build /app/public/build ./public/build
 
-RUN curl -sS https://getcomposer.org/installer | php
-RUN php composer.phar install --no-dev --optimize-autoloader
-
-RUN php artisan config:clear && php artisan route:clear && php artisan view:clear
+# Set permission (biar storage & cache bisa diakses)
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
 EXPOSE 8000
-CMD php artisan serve --host=0.0.0.0 --port=8000
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
