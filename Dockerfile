@@ -25,6 +25,10 @@ COPY . .
 # Install dependencies Laravel
 RUN composer install --no-dev --optimize-autoloader
 
+# Jalankan migration otomatis saat build
+RUN php artisan migrate --force || true
+
+
 # Set permissions
 RUN chmod -R 777 storage bootstrap/cache
 
@@ -33,3 +37,6 @@ EXPOSE 10000
 
 # Jalankan Laravel dengan artisan serve
 CMD php artisan serve --host 0.0.0.0 --port 10000
+
+CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=$PORT
+
