@@ -1,24 +1,27 @@
-# Gunakan image PHP
+# Stage 1: Build frontend assets
+FROM node:20-bullseye AS build
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Stage 2: PHP + Laravel
 FROM php:8.2-fpm
 
-# Install dependensi
 RUN apt-get update && apt-get install -y \
-    git unzip libpng-dev libonig-dev libxml2-dev zip curl && \
-    docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+    git unzip libpng-dev libonig-dev libxml2-dev libzip-dev curl \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
 
 WORKDIR /var/www/html
 COPY . .
+COPY --from=build /app/public/build ./public/build
 
-# Install composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-RUN composer install --no-dev --optimize-autoloader
+RUN curl -sS https://getcomposer.org/installer | php
+RUN php composer.phar install --no-dev --optimize-autoloader
 
-# 🔧 Tambahan penting: copy .env.example jadi .env
-RUN cp .env.example .env
-
-# Generate app key & migrate
-RUN php artisan key:generate
-RUN php artisan migrate --force || true
+RUN php artisan config:clear && php artisan route:clear && php artisan view:clear
 
 EXPOSE 8000
 CMD php artisan serve --host=0.0.0.0 --port=8000
